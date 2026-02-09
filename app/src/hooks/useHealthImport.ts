@@ -90,8 +90,56 @@ export function useHealthImport() {
         }
     }
 
+    // Parse Apple Health export.xml format (Native Export)
+    const parseXML = (xmlText: string): SleepEntry[] => {
+        const entries: SleepEntry[] = []
+        // Use regex for speed/memory efficiency since export.xml can be >100MB
+        const recordRegex = /<Record[^>]*type="HKCategoryTypeIdentifierSleepAnalysis"[^>]*startDate="([^"]+)"[^>]*endDate="([^"]+)"[^>]*value="([^"]+)"/g
+
+        let match
+        const dailyAggregator: Record<string, { start: number, end: number }> = {}
+
+        while ((match = recordRegex.exec(xmlText)) !== null) {
+            const startDateStr = match[1]
+            const endDateStr = match[2]
+            const value = match[3]
+
+            // We primarily care about "Asleep" stages or "In Bed"
+            if (value.includes('Asleep') || value.includes('InBed')) {
+                const start = new Date(startDateStr).getTime()
+                const end = new Date(endDateStr).getTime()
+                const date = new Date(startDateStr).toISOString().split('T')[0]
+
+                if (!dailyAggregator[date]) {
+                    dailyAggregator[date] = { start, end }
+                } else {
+                    dailyAggregator[date].start = Math.min(dailyAggregator[date].start, start)
+                    dailyAggregator[date].end = Math.max(dailyAggregator[date].end, end)
+                }
+            }
+        }
+
+        for (const [date, times] of Object.entries(dailyAggregator)) {
+            const start = new Date(times.start)
+            const end = new Date(times.end)
+            const durationMinutes = Math.round((times.end - times.start) / 60000)
+
+            const bedtime = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`
+            const wakeTime = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`
+
+            entries.push({
+                date,
+                bedtime,
+                wakeTime,
+                durationMinutes
+            })
+        }
+
+        return entries
+    }
+
     // Import sleep data
-    const importSleepData = useCallback(async (fileContent: string, fileType: 'csv' | 'json'): Promise<ImportResult> => {
+    const importSleepData = useCallback(async (fileContent: string, fileType: 'csv' | 'json' | 'xml'): Promise<ImportResult> => {
         if (!user?.id) {
             return { success: false, imported: 0, errors: ['Not authenticated'] }
         }
@@ -101,9 +149,10 @@ export function useHealthImport() {
         let imported = 0
 
         try {
-            const entries = fileType === 'csv'
-                ? parseAppleHealthCSV(fileContent)
-                : parseJSON(fileContent)
+            let entries: SleepEntry[] = []
+            if (fileType === 'csv') entries = parseAppleHealthCSV(fileContent)
+            else if (fileType === 'json') entries = parseJSON(fileContent)
+            else if (fileType === 'xml') entries = parseXML(fileContent)
 
             if (entries.length === 0) {
                 return { success: false, imported: 0, errors: ['No valid entries found in file'] }
@@ -181,7 +230,10 @@ export function useHealthImport() {
 
     // Handle file upload
     const handleFileUpload = useCallback(async (file: File): Promise<ImportResult> => {
-        const fileType = file.name.endsWith('.json') ? 'json' : 'csv'
+        let fileType: 'csv' | 'json' | 'xml' = 'csv'
+        if (file.name.endsWith('.json')) fileType = 'json'
+        else if (file.name.endsWith('.xml')) fileType = 'xml'
+
         const content = await file.text()
         return importSleepData(content, fileType)
     }, [importSleepData])

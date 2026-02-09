@@ -134,7 +134,7 @@ export function HealthImporter() {
                 <span>📱</span> Import from Apple Health
             </div>
             <p style={styles.description}>
-                Import your sleep data from Apple Health. Export your data as CSV or JSON and upload it here.
+                Import your sleep data from Apple Health. Export your data as XML, CSV, or JSON and upload it here.
             </p>
 
             {importing ? (
@@ -158,7 +158,7 @@ export function HealthImporter() {
                         Drop file or click to upload
                     </div>
                     <div style={styles.uploadHint}>
-                        Supports .csv and .json files
+                        Supports .xml, .csv and .json files
                     </div>
                 </div>
             )}
@@ -166,7 +166,7 @@ export function HealthImporter() {
             <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv,.json"
+                accept=".csv,.json,.xml"
                 onChange={handleFileChange}
                 style={styles.hiddenInput}
             />
