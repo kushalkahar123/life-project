@@ -176,7 +176,7 @@ export function HealthImporter() {
                     <div style={styles.resultText(lastResult.success)}>
                         {lastResult.success
                             ? `✓ Imported ${lastResult.imported} sleep entries`
-                            : `✗ ${lastResult.errors[0] || 'Import failed'}`
+                            : `✗ ${lastResult.errors[0] || 'Import failed'}${lastResult.errors.length > 1 ? ` (+${lastResult.errors.length - 1} more)` : ''}`
                         }
                     </div>
                 </div>
