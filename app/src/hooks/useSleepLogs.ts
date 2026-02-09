@@ -93,5 +93,12 @@ export function useSleepLogs() {
         await fetchLogs()
     }
 
-    return { logs, loading, streak, logSleep }
+    // Compute last 30 days for trend chart
+    const last30Days = logs.slice(0, 30).map(log => ({
+        date: log.date,
+        value: log.sleep_duration_minutes ? log.sleep_duration_minutes / 60 : 0,
+        onSchedule: log.on_schedule
+    })).reverse()
+
+    return { logs, loading, streak, logSleep, last30Days }
 }

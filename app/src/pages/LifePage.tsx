@@ -4,10 +4,12 @@ import { useHabitLogs } from '../hooks/useHabitLogs'
 import { useMeals } from '../hooks/useMeals'
 import { useWorkouts } from '../hooks/useWorkouts'
 import { useMilestones } from '../hooks/useMilestones'
+import { usePartner } from '../hooks/usePartner'
 
 import { SummaryDashboard } from '../components/SummaryDashboard'
 import { TravelPlanner } from '../components/TravelPlanner'
 import { MilestoneTracker } from '../components/MilestoneTracker'
+import { CoupleComparison } from '../components/CoupleComparison'
 
 const styles = {
     container: {
@@ -58,8 +60,33 @@ export function LifePage() {
     const { stats: nutritionStats, loading: mealsLoading } = useMeals()
     const { stats: exerciseStats, loading: workoutsLoading } = useWorkouts()
     const { milestones, toggleMilestoneTask, loading: milestonesLoading } = useMilestones()
+    const { partnerData, loading: partnerLoading } = usePartner()
 
-    const loading = sleepLoading || habitLoading || mealsLoading || workoutsLoading || milestonesLoading
+    const loading = sleepLoading || habitLoading || mealsLoading || workoutsLoading || milestonesLoading || partnerLoading
+
+    // Build your own data for comparison
+    const today = new Date().toISOString().split('T')[0]
+    const todaySleep = sleepLogs.find(log => log.date === today)
+    const yourData = {
+        sleepHours: todaySleep?.sleep_duration_minutes ? todaySleep.sleep_duration_minutes / 60 : null,
+        sleepOnTime: todaySleep?.on_schedule || false,
+        smokedToday: habitStats.smokeFreeStreak === 0,
+        workedOut: exerciseStats.workoutsThisWeek > 0,
+        workoutType: undefined,
+        smokeFreeStreak: habitStats.smokeFreeStreak,
+        sleepStreak: sleepLogs.filter(l => l.on_schedule).length
+    }
+
+    // Partner data for comparison
+    const partnerCompare = partnerData.profile ? {
+        sleepHours: partnerData.todaySleep?.sleep_duration_minutes ? partnerData.todaySleep.sleep_duration_minutes / 60 : null,
+        sleepOnTime: partnerData.todaySleep?.on_schedule || false,
+        smokedToday: partnerData.todayHabits.some(h => h.habit_type === 'smoke'),
+        workedOut: partnerData.todayWorkouts.length > 0,
+        workoutType: partnerData.todayWorkouts[0]?.workout_type,
+        smokeFreeStreak: partnerData.smokeFreeStreak,
+        sleepStreak: partnerData.sleepStreak
+    } : null
 
     return (
         <div style={styles.container}>
@@ -73,6 +100,14 @@ export function LifePage() {
                         🚪
                     </button>
                 </div>
+
+                <CoupleComparison
+                    yourData={yourData}
+                    partnerData={partnerCompare}
+                    yourName="You"
+                    partnerName={partnerData.profile?.display_name || 'Partner'}
+                    loading={partnerLoading}
+                />
 
                 <SummaryDashboard
                     sleepLogs={sleepLogs}

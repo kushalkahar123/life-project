@@ -5,7 +5,7 @@ interface Props {
     onLog: (
         mealType: MealType,
         homeOrOut: 'home' | 'out',
-        options?: { calories?: number; protein?: number; description?: string }
+        options?: { calories?: number; protein?: number; carbs?: number; fats?: number; description?: string }
     ) => Promise<void>
 }
 
@@ -96,6 +96,8 @@ export function MealLogger({ onLog }: Props) {
     const [homeOrOut, setHomeOrOut] = useState<'home' | 'out'>('home')
     const [calories, setCalories] = useState('')
     const [protein, setProtein] = useState('')
+    const [carbs, setCarbs] = useState('')
+    const [fats, setFats] = useState('')
     const [description, setDescription] = useState('')
     const [loading, setLoading] = useState(false)
 
@@ -105,10 +107,14 @@ export function MealLogger({ onLog }: Props) {
             await onLog(mealType, homeOrOut, {
                 calories: calories ? parseInt(calories) : undefined,
                 protein: protein ? parseInt(protein) : undefined,
+                carbs: carbs ? parseInt(carbs) : undefined,
+                fats: fats ? parseInt(fats) : undefined,
                 description: description || undefined,
             })
             setCalories('')
             setProtein('')
+            setCarbs('')
+            setFats('')
             setDescription('')
         } finally {
             setLoading(false)
@@ -168,6 +174,23 @@ export function MealLogger({ onLog }: Props) {
                     placeholder="Protein (g)"
                     value={protein}
                     onChange={e => setProtein(e.target.value)}
+                    style={styles.input}
+                />
+            </div>
+
+            <div style={styles.inputRow}>
+                <input
+                    type="number"
+                    placeholder="Carbs (g)"
+                    value={carbs}
+                    onChange={e => setCarbs(e.target.value)}
+                    style={styles.input}
+                />
+                <input
+                    type="number"
+                    placeholder="Fats (g)"
+                    value={fats}
+                    onChange={e => setFats(e.target.value)}
                     style={styles.input}
                 />
             </div>

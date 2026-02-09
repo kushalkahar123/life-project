@@ -4,6 +4,7 @@ import { useWorkouts } from '../hooks/useWorkouts'
 import { FitnessStats } from '../components/FitnessStats'
 import { MealLogger } from '../components/MealLogger'
 import { WorkoutLogger } from '../components/WorkoutLogger'
+import { MacroSummary } from '../components/MacroSummary'
 import type { Meal, Workout } from '../types/nutrition'
 
 const styles = {
@@ -94,7 +95,7 @@ const workoutEmojis: Record<string, string> = {
 
 export function FitnessPage() {
     const { signOut } = useAuth()
-    const { meals, loading: mealsLoading, stats: nutritionStats, logMeal } = useMeals()
+    const { meals, loading: mealsLoading, stats: nutritionStats, logMeal, todayMacros } = useMeals()
     const { workouts, loading: workoutsLoading, stats: exerciseStats, logWorkout } = useWorkouts()
 
     const loading = mealsLoading || workoutsLoading
@@ -125,6 +126,12 @@ export function FitnessPage() {
                         🚪
                     </button>
                 </div>
+
+                <MacroSummary
+                    current={todayMacros}
+                    targets={{ calories: 2100, protein: 150, carbs: 250, fats: 70 }}
+                    loading={loading}
+                />
 
                 <FitnessStats
                     nutritionStats={nutritionStats}

@@ -5,6 +5,7 @@ import { useSleepLogs } from '../hooks/useSleepLogs'
 import type { SleepLog } from '../types/sleep'
 import { SleepLogger } from '../components/SleepLogger'
 import { SleepStats } from '../components/SleepStats'
+import { TrendChart } from '../components/TrendChart'
 
 console.log('[Dashboard] All imports complete')
 
@@ -81,7 +82,7 @@ const styles = {
 export function Dashboard() {
     console.log('[Dashboard] Rendering...')
     const { signOut } = useAuth()
-    const { logs, loading, streak, logSleep } = useSleepLogs()
+    const { logs, loading, streak, logSleep, last30Days } = useSleepLogs()
 
     console.log('[Dashboard] Got hooks:', { logsCount: logs.length, loading, streak })
 
@@ -106,6 +107,14 @@ export function Dashboard() {
                 </div>
 
                 <SleepStats streak={streak} logs={logs} loading={loading} />
+
+                <h2 style={styles.sectionTitle}>30-Day Sleep Trend</h2>
+                <TrendChart
+                    data={last30Days}
+                    label="Sleep Duration (hours)"
+                    color="#8b5cf6"
+                    targetValue={7}
+                />
 
                 <h2 style={styles.sectionTitle}>Log Tonight's Sleep</h2>
                 <SleepLogger onLog={logSleep} />

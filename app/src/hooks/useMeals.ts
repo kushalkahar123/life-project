@@ -106,5 +106,15 @@ export function useMeals() {
         await fetchMeals()
     }
 
-    return { meals, loading, stats, logMeal }
+    // Today's macro totals for MacroSummary
+    const today = new Date().toISOString().split('T')[0]
+    const todayMeals = meals.filter(m => m.date === today)
+    const todayMacros = {
+        calories: todayMeals.reduce((sum, m) => sum + (m.calories || 0), 0),
+        protein: todayMeals.reduce((sum, m) => sum + (m.protein_g || 0), 0),
+        carbs: todayMeals.reduce((sum, m) => sum + (m.carbs_g || 0), 0),
+        fats: todayMeals.reduce((sum, m) => sum + (m.fats_g || 0), 0)
+    }
+
+    return { meals, loading, stats, logMeal, todayMacros }
 }
