@@ -4,6 +4,7 @@ import { HabitLogger } from '../components/HabitLogger'
 import { HabitStats } from '../components/HabitStats'
 import { SavingsCounter } from '../components/SavingsCounter'
 import { AchievementBadges } from '../components/AchievementBadges'
+import { SmokingTaperPlan } from '../components/SmokingTaperPlan'
 import type { HabitLog } from '../types/habit'
 
 const styles = {
@@ -139,6 +140,9 @@ export function HabitPage() {
                         targetLabel="Workout Equipment"
                     />
                 </div>
+
+                <h2 style={styles.sectionTitle}>📉 Quit Plan</h2>
+                <SmokingTaperPlan currentStreak={stats.smokeFreeStreak} />
 
                 <h2 style={styles.sectionTitle}>Your Achievements</h2>
                 <AchievementBadges achievements={achievements} />

@@ -10,6 +10,7 @@ import { SummaryDashboard } from '../components/SummaryDashboard'
 import { TravelPlanner } from '../components/TravelPlanner'
 import { MilestoneTracker } from '../components/MilestoneTracker'
 import { CoupleComparison } from '../components/CoupleComparison'
+import { LongTermMilestones } from '../components/LongTermMilestones'
 
 const styles = {
     container: {
@@ -120,11 +121,39 @@ export function LifePage() {
                 <h2 style={styles.sectionTitle}>🗺️ Travel & Outings</h2>
                 <TravelPlanner />
 
-                <h2 style={styles.sectionTitle}>🏆 Long-term Milestones</h2>
+                <h2 style={styles.sectionTitle}>🏆 Task Milestones</h2>
                 <MilestoneTracker
                     milestones={milestones}
                     onToggle={toggleMilestoneTask}
                 />
+
+                <h2 style={styles.sectionTitle}>🐶 Life Goals</h2>
+                <LongTermMilestones milestones={[
+                    {
+                        id: 'dog',
+                        title: 'Get a Dog',
+                        emoji: '🐕',
+                        targetDate: '2026-08-01',
+                        status: 'locked',
+                        requirements: [
+                            { label: 'Smoke-free streak', current: habitStats.smokeFreeStreak, target: 90, unit: 'days' },
+                            { label: 'Savings goal', current: Math.min(habitStats.moneySaved, 25000), target: 25000, unit: '₹' },
+                            { label: 'Consistent sleep', current: sleepLogs.filter(l => l.on_schedule).length, target: 30, unit: 'days' },
+                        ]
+                    },
+                    {
+                        id: 'baby',
+                        title: 'Start Family',
+                        emoji: '👶',
+                        targetDate: '2029-02-01',
+                        status: 'locked',
+                        requirements: [
+                            { label: '1 year smoke-free', current: Math.min(habitStats.smokeFreeStreak, 365), target: 365, unit: 'days' },
+                            { label: 'Dog milestone complete', current: 0, target: 1, unit: '' },
+                            { label: 'Financial stability', current: Math.min(habitStats.moneySaved, 100000), target: 100000, unit: '₹' },
+                        ]
+                    }
+                ]} />
             </div>
         </div>
     )
