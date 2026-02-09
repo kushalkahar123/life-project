@@ -3,6 +3,7 @@ import { useHabitLogs } from '../hooks/useHabitLogs'
 import { HabitLogger } from '../components/HabitLogger'
 import { HabitStats } from '../components/HabitStats'
 import { SavingsCounter } from '../components/SavingsCounter'
+import { AchievementBadges } from '../components/AchievementBadges'
 import type { HabitLog } from '../types/habit'
 
 const styles = {
@@ -106,6 +107,16 @@ export function HabitPage() {
         return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
     }
 
+    // Compute achievements based on stats
+    const achievements = [
+        { id: '1', title: '1 Week Smoke-Free', emoji: '🚭', description: '7 days', unlocked: stats.smokeFreeStreak >= 7, progress: Math.min(stats.smokeFreeStreak, 7), target: 7 },
+        { id: '2', title: '2 Weeks Smoke-Free', emoji: '💪', description: '14 days', unlocked: stats.smokeFreeStreak >= 14, progress: Math.min(stats.smokeFreeStreak, 14), target: 14 },
+        { id: '3', title: '1 Month Smoke-Free', emoji: '🏆', description: '30 days', unlocked: stats.smokeFreeStreak >= 30, progress: Math.min(stats.smokeFreeStreak, 30), target: 30 },
+        { id: '5', title: '₹1K Saved', emoji: '💰', description: 'Saved ₹1,000', unlocked: stats.moneySaved >= 1000, progress: Math.min(stats.moneySaved, 1000), target: 1000 },
+        { id: '6', title: '₹5K Saved', emoji: '💎', description: 'Saved ₹5,000', unlocked: stats.moneySaved >= 5000, progress: Math.min(stats.moneySaved, 5000), target: 5000 },
+        { id: '8', title: 'Home Chef', emoji: '👨‍🍳', description: '7 home meals', unlocked: stats.homeMealsThisWeek >= 7, progress: Math.min(stats.homeMealsThisWeek, 7), target: 7 },
+    ]
+
     return (
         <div style={styles.container}>
             <div style={styles.wrapper}>
@@ -128,6 +139,9 @@ export function HabitPage() {
                         targetLabel="Workout Equipment"
                     />
                 </div>
+
+                <h2 style={styles.sectionTitle}>Your Achievements</h2>
+                <AchievementBadges achievements={achievements} />
 
                 <h2 style={styles.sectionTitle}>Quick Log</h2>
                 <HabitLogger onLog={logHabit} />

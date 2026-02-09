@@ -5,6 +5,7 @@ import { Dashboard } from './pages/Dashboard'
 import { HabitPage } from './pages/HabitPage'
 import { FitnessPage } from './pages/FitnessPage'
 import { LifePage } from './pages/LifePage'
+import { BedtimeEnforcer } from './components/BedtimeEnforcer'
 
 type TabType = 'sleep' | 'habits' | 'fitness' | 'life'
 
@@ -50,6 +51,7 @@ const navStyles = {
 function AppContent() {
   const { user, loading } = useAuth()
   const [activeTab, setActiveTab] = useState<TabType>('sleep')
+  const [bedtimeWarningDismissed, setBedtimeWarningDismissed] = useState(false)
 
   if (loading) {
     return (
@@ -82,6 +84,15 @@ function AppContent() {
   return (
     <>
       {renderPage()}
+
+      {/* Bedtime Enforcer - appears at 10:30 PM and takes over at 11 PM */}
+      {!bedtimeWarningDismissed && (
+        <BedtimeEnforcer
+          targetBedtime="23:00"
+          warningMinutes={30}
+          onDismiss={() => setBedtimeWarningDismissed(true)}
+        />
+      )}
 
       {/* Bottom Navigation */}
       <nav style={navStyles.container}>
