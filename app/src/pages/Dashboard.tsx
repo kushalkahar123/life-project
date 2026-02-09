@@ -80,7 +80,7 @@ const styles = {
 
 export function Dashboard() {
     console.log('[Dashboard] Rendering...')
-    const { user, signOut } = useAuth()
+    const { signOut } = useAuth()
     const { logs, loading, streak, logSleep } = useSleepLogs()
 
     console.log('[Dashboard] Got hooks:', { logsCount: logs.length, loading, streak })

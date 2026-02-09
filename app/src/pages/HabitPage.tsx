@@ -93,7 +93,7 @@ const typeLabels: Record<string, string> = {
 }
 
 export function HabitPage() {
-    const { user, signOut } = useAuth()
+    const { signOut } = useAuth()
     const { logs, loading, stats, logHabit } = useHabitLogs()
 
     const formatTime = (timestamp: string) => {
