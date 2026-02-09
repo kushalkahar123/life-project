@@ -25,12 +25,26 @@ export function useHealthImport() {
     const batchUpsert = async (entries: SleepEntry[]): Promise<{ count: number, errorLines: string[] }> => {
         if (!user?.id) return { count: 0, errorLines: ['Not authenticated'] }
 
+        // Ensure profile exists first to prevent foreign key errors
+        try {
+            await supabase.from('profiles').upsert({
+                id: user.id,
+                email: user.email,
+                display_name: user.user_metadata?.display_name || 'User'
+            }, { onConflict: 'id' })
+        } catch (e) {
+            console.error('Profile sync failed:', e)
+        }
+
         let count = 0
         const errorLines: string[] = []
-        const chunkSize = 200 // Safe chunk size for HTTP payloads
+        const chunkSize = 100 // Smaller chunks for reliability
 
-        for (let i = 0; i < entries.length; i += chunkSize) {
-            const chunk = entries.slice(i, i + chunkSize)
+        // Sort entries by date
+        const sortedEntries = [...entries].sort((a, b) => a.date.localeCompare(b.date))
+
+        for (let i = 0; i < sortedEntries.length; i += chunkSize) {
+            const chunk = sortedEntries.slice(i, i + chunkSize)
             const payload = chunk.map(entry => ({
                 user_id: user.id,
                 date: entry.date,
@@ -38,7 +52,6 @@ export function useHealthImport() {
                 wake_actual: entry.wakeTime || null,
                 sleep_duration_minutes: entry.durationMinutes || null,
                 imported_from: 'apple_health'
-                // on_schedule is GENERATED ALWAYS in DB, do NOT include it here
             }))
 
             const { error } = await supabase
@@ -46,7 +59,15 @@ export function useHealthImport() {
                 .upsert(payload, { onConflict: 'user_id,date' })
 
             if (error) {
-                errorLines.push(`Chunk ${i / chunkSize + 1}: ${error.message}`)
+                // If the error suggests the column doesn't exist, we skip imported_from
+                if (error.message.includes('imported_from')) {
+                    const fallbackPayload = payload.map(({ imported_from, ...rest }) => rest)
+                    const { error: retryError } = await supabase.from('sleep_logs').upsert(fallbackPayload, { onConflict: 'user_id,date' })
+                    if (!retryError) count += chunk.length
+                    else errorLines.push(retryError.message)
+                } else {
+                    errorLines.push(`${error.message} (Start Date: ${chunk[0].date})`)
+                }
             } else {
                 count += chunk.length
             }
@@ -59,7 +80,6 @@ export function useHealthImport() {
     const parseAppleHealthCSV = (csvText: string): SleepEntry[] => {
         const lines = csvText.trim().split('\n')
         const entries: SleepEntry[] = []
-
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i]
             if (!line.trim()) continue
@@ -118,9 +138,6 @@ export function useHealthImport() {
         const stream = file.stream()
         const reader = stream.getReader()
         const decoder = new TextDecoder()
-
-        // Specifically look for Sleep records
-        const recordRegex = /<Record[^>]*type="HKCategoryTypeIdentifierSleepAnalysis"[^>]*startDate="([^"]+)"[^>]*endDate="([^"]+)"[^>]*value="([^"]+)"/g
         const dailyAggregator: Record<string, { start: number, end: number }> = {}
 
         let buffer = ''
@@ -133,40 +150,61 @@ export function useHealthImport() {
             processedSize += value.length
             buffer += decoder.decode(value, { stream: true })
 
-            // UI breathing room
-            if (Date.now() - lastYield > 400) {
+            // Progress & Yielding
+            if (Date.now() - lastYield > 300) {
                 if (onProgress) onProgress(Math.floor((processedSize / totalSize) * 100))
                 await new Promise(resolve => setTimeout(resolve, 1))
                 lastYield = Date.now()
             }
 
-            let match
-            while ((match = recordRegex.exec(buffer)) !== null) {
-                const startDateStr = match[1]
-                const endDateStr = match[2]
-                const valueStr = match[3]
+            // Robust XML Record Parsing (order-independent)
+            let recordStart = buffer.indexOf('<Record')
+            while (recordStart !== -1) {
+                const recordEnd = buffer.indexOf('/>', recordStart)
+                if (recordEnd === -1) break // Wait for more data
 
-                if (valueStr.includes('Asleep') || valueStr.includes('InBed')) {
-                    const start = new Date(startDateStr).getTime()
-                    const end = new Date(endDateStr).getTime()
-                    const date = new Date(startDateStr).toISOString().split('T')[0]
+                const tag = buffer.substring(recordStart, recordEnd + 2)
 
-                    if (!dailyAggregator[date]) {
-                        dailyAggregator[date] = { start, end }
-                    } else {
-                        dailyAggregator[date].start = Math.min(dailyAggregator[date].start, start)
-                        dailyAggregator[date].end = Math.max(dailyAggregator[date].end, end)
+                // Only process sleep analysis records
+                if (tag.includes('HKCategoryTypeIdentifierSleepAnalysis')) {
+                    const startMatch = tag.match(/startDate="([^"]+)"/)
+                    const endMatch = tag.match(/endDate="([^"]+)"/)
+                    const valueMatch = tag.match(/value="([^"]+)"/)
+
+                    if (startMatch && endMatch && valueMatch) {
+                        const val = valueMatch[1]
+                        // Match Asleep, InBed, Core, Deep, REM (supports full strings or IDs 1-5)
+                        const isSleepRecord = val.includes('Asleep') ||
+                            val.includes('InBed') ||
+                            /^[1-5]$/.test(val) ||
+                            val.includes('SleepAnalysis')
+
+                        if (isSleepRecord) {
+                            const startTs = new Date(startMatch[1]).getTime()
+                            const endTs = new Date(endMatch[1]).getTime()
+                            const dateStr = new Date(startMatch[1]).toISOString().split('T')[0]
+
+                            if (!isNaN(startTs) && !isNaN(endTs)) {
+                                if (!dailyAggregator[dateStr]) {
+                                    dailyAggregator[dateStr] = { start: startTs, end: endTs }
+                                } else {
+                                    dailyAggregator[dateStr].start = Math.min(dailyAggregator[dateStr].start, startTs)
+                                    dailyAggregator[dateStr].end = Math.max(dailyAggregator[dateStr].end, endTs)
+                                }
+                            }
+                        }
                     }
                 }
+                recordStart = buffer.indexOf('<Record', recordEnd)
             }
 
-            // Clear processed records from buffer
-            const lastAngleBracket = buffer.lastIndexOf('>')
-            if (lastAngleBracket !== -1) {
-                buffer = buffer.substring(lastAngleBracket + 1)
-                recordRegex.lastIndex = 0
-            } else if (buffer.length > 50000) {
-                buffer = '' // Buffer safety
+            // Buffer cleanup: keep only the unfinished tag at the end
+            const lastRecordPos = buffer.lastIndexOf('<Record')
+            const lastClosePos = buffer.lastIndexOf('/>')
+            if (lastRecordPos > lastClosePos) {
+                buffer = buffer.substring(lastRecordPos)
+            } else {
+                buffer = ''
             }
         }
 
@@ -184,17 +222,14 @@ export function useHealthImport() {
         return entries
     }
 
-    // Public API to handle any file
     const handleFileUpload = useCallback(async (file: File): Promise<ImportResult> => {
         if (!user?.id) return { success: false, imported: 0, errors: ['Not authenticated'] }
-
         setImporting(true)
         setProgress(0)
         setLastResult(null)
 
         try {
             let entries: SleepEntry[] = []
-
             if (file.name.endsWith('.xml')) {
                 entries = await parseStreamedXML(file, setProgress)
             } else {
@@ -207,37 +242,24 @@ export function useHealthImport() {
             }
 
             if (entries.length === 0) {
-                const result = { success: false, imported: 0, errors: ['No valid sleep records found in file.'] }
+                const result = { success: false, imported: 0, errors: ['No sleep records found. Ensure your Health Export includes Sleep data.'] }
                 setLastResult(result)
                 return result
             }
 
-            // Sync with DB using batch upsert
             const { count, errorLines } = await batchUpsert(entries)
-
-            const result = {
-                success: count > 0,
-                imported: count,
-                errors: errorLines
-            }
+            const result = { success: count > 0, imported: count, errors: errorLines }
             setLastResult(result)
             return result
-
         } catch (e: any) {
-            const result = { success: false, imported: 0, errors: [e?.message || String(e)] }
+            const result = { success: false, imported: 0, errors: [e?.message || 'Unexpected parse error'] }
             setLastResult(result)
             return result
         } finally {
             setImporting(false)
             setProgress(0)
         }
-    }, [user?.id])
+    }, [user?.id, user?.email, user?.user_metadata])
 
-    return {
-        importing,
-        progress,
-        lastResult,
-        handleFileUpload,
-        clearResult: () => setLastResult(null)
-    }
+    return { importing, progress, lastResult, handleFileUpload, clearResult: () => setLastResult(null) }
 }
