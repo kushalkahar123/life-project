@@ -6,6 +6,7 @@ import type { SleepLog } from '../types/sleep'
 import { SleepLogger } from '../components/SleepLogger'
 import { SleepStats } from '../components/SleepStats'
 import { TrendChart } from '../components/TrendChart'
+import { HealthImporter } from '../components/HealthImporter'
 
 console.log('[Dashboard] All imports complete')
 
@@ -145,6 +146,9 @@ export function Dashboard() {
                         ))
                     )}
                 </div>
+
+                <h2 style={styles.sectionTitle}>Import Data</h2>
+                <HealthImporter />
             </div>
         </div>
     )

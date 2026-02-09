@@ -6,6 +6,8 @@ import { HabitPage } from './pages/HabitPage'
 import { FitnessPage } from './pages/FitnessPage'
 import { LifePage } from './pages/LifePage'
 import { BedtimeEnforcer } from './components/BedtimeEnforcer'
+import { WeeklyReview } from './components/WeeklyReview'
+import { useWeeklyReview } from './hooks/useWeeklyReview'
 
 type TabType = 'sleep' | 'habits' | 'fitness' | 'life'
 
@@ -52,6 +54,7 @@ function AppContent() {
   const { user, loading } = useAuth()
   const [activeTab, setActiveTab] = useState<TabType>('sleep')
   const [bedtimeWarningDismissed, setBedtimeWarningDismissed] = useState(false)
+  const { showReviewPrompt, weekStats, submitReview, dismissReview } = useWeeklyReview()
 
   if (loading) {
     return (
@@ -91,6 +94,15 @@ function AppContent() {
           targetBedtime="23:00"
           warningMinutes={30}
           onDismiss={() => setBedtimeWarningDismissed(true)}
+        />
+      )}
+
+      {/* Weekly Review - auto-prompts on Sunday evening */}
+      {showReviewPrompt && (
+        <WeeklyReview
+          weekStats={weekStats}
+          onComplete={submitReview}
+          onDismiss={dismissReview}
         />
       )}
 
