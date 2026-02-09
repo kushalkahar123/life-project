@@ -94,7 +94,7 @@ const styles = {
 
 export function HealthImporter() {
     const fileInputRef = useRef<HTMLInputElement>(null)
-    const { importing, lastResult, handleFileUpload, clearResult } = useHealthImport()
+    const { importing, progress, lastResult, handleFileUpload, clearResult } = useHealthImport()
     const [dragActive, setDragActive] = useState(false)
 
     const handleDrag = (e: React.DragEvent) => {
@@ -139,7 +139,7 @@ export function HealthImporter() {
 
             {importing ? (
                 <div style={styles.loading}>
-                    <span>⏳</span> Importing...
+                    <span>⏳</span> {progress > 0 ? `Scanning: ${progress}%` : 'Importing...'}
                 </div>
             ) : (
                 <div
