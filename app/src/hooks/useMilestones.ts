@@ -15,30 +15,63 @@ export function useMilestones() {
         setLoading(true)
         try {
             // Get user's profile to find household_id
-            const { data: profile } = await supabase
+            let { data: profile } = await supabase
                 .from('profiles')
                 .select('household_id')
                 .eq('id', user.id)
                 .single()
 
-            if (!profile?.household_id) {
-                // If no household yet, we might need to create one or join one
-                // For now, we'll assume a default one or leave it empty
-                setLoading(false)
-                return
-            }
+            let hId = profile?.household_id
 
-            const household_id = profile.household_id
+            if (!hId) {
+                // Proactively create/get household if none exists
+                hId = await getHouseholdId()
+                if (!hId) {
+                    setLoading(false)
+                    return
+                }
+            }
 
             // Run queries in parallel
             const [tripsRes, milestonesRes, savingsRes] = await Promise.all([
-                supabase.from('trips').select('*').eq('household_id', household_id).order('date', { ascending: false }),
-                supabase.from('milestones').select('*').eq('household_id', household_id).order('created_at', { ascending: true }),
-                supabase.from('savings_goals').select('*').eq('household_id', household_id).order('created_at', { ascending: true })
+                supabase.from('trips').select('*').eq('household_id', hId).order('date', { ascending: false }),
+                supabase.from('milestones').select('*').eq('household_id', hId).order('created_at', { ascending: true }),
+                supabase.from('savings_goals').select('*').eq('household_id', hId).order('created_at', { ascending: true })
             ])
 
+            // If milestones are empty, seed some defaults
+            if (milestonesRes.data && milestonesRes.data.length === 0) {
+                const defaults = [
+                    {
+                        household_id: hId,
+                        milestone_type: 'property',
+                        title: 'Buy Our First House',
+                        target_date: '2028-12-31',
+                        checklist: [
+                            { task: 'Save for down payment (20L)', completed: false },
+                            { task: 'Research locations in Mumbai', completed: false },
+                            { task: 'Check home loan eligibility', completed: false }
+                        ]
+                    },
+                    {
+                        household_id: hId,
+                        milestone_type: 'family',
+                        title: 'Bring Home a Golden Retriever',
+                        target_date: '2027-06-01',
+                        checklist: [
+                            { task: 'Puppy-proof the house', completed: false },
+                            { task: 'Find a reputable breeder', completed: false },
+                            { task: 'Research training centers', completed: false }
+                        ]
+                    }
+                ]
+                const { data: seeded } = await supabase.from('milestones').insert(defaults).select()
+                if (seeded) setMilestones(seeded as Milestone[])
+            } else if (milestonesRes.data) {
+                setMilestones(milestonesRes.data as Milestone[])
+            }
+
             if (tripsRes.data) setTrips(tripsRes.data as Trip[])
-            if (milestonesRes.data) setMilestones(milestonesRes.data as Milestone[])
             if (savingsRes.data) setSavingsGoals(savingsRes.data as SavingsGoal[])
 
         } catch (err) {
